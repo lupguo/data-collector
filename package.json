@@ -1,0 +1,10 @@
+{
+  "name": "datacollector-e2e",
+  "version": "1.0.0",
+  "scripts": {
+    "test:e2e": "npx playwright test tests/e2e_v4.spec.ts --reporter=line"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

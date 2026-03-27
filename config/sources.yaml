@@ -1,0 +1,119 @@
+# sources.yaml — 数据源配置说明文件
+# 实际配置存储在数据库 t_data_sources 表中，本文件仅供参考
+# 执行 scripts/init_db.py 会自动将以下配置写入 DB
+
+sources:
+  # ─── RSS 科技媒体 ───
+  - name: techcrunch_rss
+    type: rss
+    description: "TechCrunch 科技新闻"
+    config:
+      url: "https://techcrunch.com/feed/"
+
+  - name: theverge_rss
+    type: rss
+    description: "The Verge"
+    config:
+      url: "https://www.theverge.com/rss/index.xml"
+
+  - name: mit_rss
+    type: rss
+    description: "MIT Tech Review"
+    config:
+      url: "https://www.technologyreview.com/feed/"
+
+  - name: wired_rss
+    type: rss
+    description: "Wired"
+    config:
+      url: "https://www.wired.com/feed/rss"
+
+  - name: ars_rss
+    type: rss
+    description: "Ars Technica"
+    config:
+      url: "https://feeds.arstechnica.com/arstechnica/index"
+
+  # ─── RSS 学术 ───
+  - name: arxiv_ai_rss
+    type: rss
+    description: "ArXiv cs.AI"
+    config:
+      url: "https://export.arxiv.org/rss/cs.AI"
+
+  - name: arxiv_lg_rss
+    type: rss
+    description: "ArXiv cs.LG"
+    config:
+      url: "https://export.arxiv.org/rss/cs.LG"
+
+  # ─── RSS 中文科技 ───
+  - name: 36kr_rss
+    type: rss
+    description: "36Kr"
+    config:
+      url: "https://36kr.com/feed"
+
+  - name: infoq_rss
+    type: rss
+    description: "InfoQ"
+    config:
+      url: "https://feed.infoq.com/"
+
+  - name: huxiu_rss
+    type: rss
+    description: "虎嗅"
+    config:
+      url: "https://www.huxiu.com/rss/0.xml"
+
+  - name: ifanr_rss
+    type: rss
+    description: "iFanr 爱范儿"
+    config:
+      url: "https://www.ifanr.com/feed"
+
+  # ─── RSS 财经/国际 ───
+  - name: bloomberg_rss
+    type: rss
+    description: "Bloomberg Markets"
+    config:
+      url: "https://feeds.bloomberg.com/markets/news.rss"
+
+  - name: wsj_rss
+    type: rss
+    description: "WSJ Markets"
+    config:
+      url: "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
+
+  - name: skynews_rss
+    type: rss
+    description: "Sky News World"
+    config:
+      url: "https://feeds.skynews.com/feeds/rss/world.xml"
+
+  - name: nytimes_rss
+    type: rss
+    description: "NYTimes World"
+    config:
+      url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+
+  - name: economist_rss
+    type: rss
+    description: "The Economist"
+    config:
+      url: "https://www.economist.com/finance-and-economics/rss.xml"
+
+  # ─── API / Crawler ───
+  - name: hn_api
+    type: api
+    description: "Hacker News Top30"
+    config:
+      url: "https://hacker-news.firebaseio.com/v0/topstories.json"
+      limit: 30
+
+  - name: github_trending
+    type: crawler
+    description: "GitHub 每日 Trending"
+    config:
+      since: "daily"
+      limit: 25

@@ -1,0 +1,10 @@
+logs/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+# 运行时文件
+*.pid
+node_modules/
+test-results/

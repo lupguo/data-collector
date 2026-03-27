@@ -1,0 +1,34 @@
+# channels.yaml — 频道配置说明文件
+# 实际配置存储在数据库 t_channels 表中，本文件仅供参考
+# 执行 scripts/init_db.py 会自动将以下配置写入 DB
+
+channels:
+  - name: "AI技术动态"
+    min_score: 0.70
+    enabled: true
+    filter_prompt: |
+      我关注AI技术领域的内容，包括：
+      1. 大模型技术突破（架构创新/训练方法/推理能力）
+      2. AI产品发布与重要更新（ChatGPT/Claude/Gemini/国内大模型等）
+      3. AI企业重要动态（融资/收购/战略调整）
+      4. AI开发工具与框架（LangChain/vLLM/Hugging Face等）
+      5. 国内AI生态动态（百度/腾讯/阿里/字节/创业公司）
+      不关注：宏观经济、政治新闻、非AI相关科技内容、自然灾害。
+      请给出0-1的相关度分数，1=完全符合，0=完全无关。
+    push_destinations:
+      - type: wecom
+        target: "T87750020A"
+
+  - name: "GitHub热门项目"
+    min_score: 0.60
+    enabled: true
+    filter_prompt: |
+      我关注GitHub每日trending中值得关注的开源项目，包括：
+      1. AI/LLM相关框架和工具（优先）
+      2. 开发效率工具（编辑器/CLI/自动化）
+      3. 创新性技术项目（star增长显著）
+      不关注：纯文档类仓库、教程合集、与技术无关的项目。
+      请给出0-1的相关度分数。
+    push_destinations:
+      - type: wecom
+        target: "T87750020A"

@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦐 虾人情报站 — Admin</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2128; --surface3: #21262d;
+  --border: #30363d; --border2: #3d444d;
+  --text: #e6edf3; --muted: #8b949e; --muted2: #6e7681;
+  --accent: #58a6ff; --accent2: #388bfd;
+  --green: #3fb950; --orange: #d29922; --red: #f85149; --purple: #bc8cff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Header ── */
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 200; flex-shrink: 0;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon { font-size: 1.5rem; }
+.logo-text h1 { font-size: 1rem; font-weight: 700; }
+.logo-text .sub { font-size: .68rem; color: var(--muted); margin-top: 1px; }
+nav { display: flex; gap: 6px; }
+nav a {
+  padding: 5px 14px; border-radius: 6px; font-size: .82rem; text-decoration: none;
+  color: var(--muted); border: 1px solid transparent; transition: all .18s;
+}
+nav a:hover { color: var(--text); border-color: var(--border); }
+nav a.active { color: var(--accent); border-color: rgba(88,166,255,.4); background: rgba(88,166,255,.08); }
+
+/* ── Main Layout ── */
+.layout { display: flex; flex: 1; min-height: 0; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 160px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
+  padding: 16px 0; position: sticky; top: 57px; height: calc(100vh - 57px); overflow-y: auto;
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px; cursor: pointer; font-size: .85rem; color: var(--muted);
+  transition: all .15s; border-left: 2px solid transparent;
+}
+.sidebar-item:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.sidebar-item.active { color: var(--accent); background: rgba(88,166,255,.08); border-left-color: var(--accent); }
+.sidebar-icon { font-size: 1rem; width: 18px; text-align: center; }
+
+/* ── Main Content ── */
+.main { flex: 1; padding: 24px; overflow-y: auto; min-width: 0; }
+
+.section { display: none; }
+.section.active { display: block; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.section-title { font-size: 1.05rem; font-weight: 700; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px; border-radius: 6px; font-size: .8rem; cursor: pointer;
+  border: 1px solid transparent; transition: all .18s; font-weight: 500;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #4493f8; }
+.btn-sm { padding: 4px 10px; font-size: .75rem; }
+.btn-ghost { background: transparent; border-color: var(--border); color: var(--muted); }
+.btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border2); }
+.btn-danger { background: rgba(248,81,73,.1); border-color: rgba(248,81,73,.4); color: var(--red); }
+.btn-danger:hover:not(:disabled) { background: rgba(248,81,73,.2); }
+.btn-success { background: rgba(63,185,80,.1); border-color: rgba(63,185,80,.4); color: var(--green); }
+.btn-success:hover:not(:disabled) { background: rgba(63,185,80,.2); }
+.btn-orange { background: rgba(210,153,34,.1); border-color: rgba(210,153,34,.4); color: var(--orange); }
+.btn-orange:hover:not(:disabled) { background: rgba(210,153,34,.2); }
+
+/* ── Table ── */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th { background: var(--surface2); color: var(--muted); font-weight: 600; font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; padding: 10px 14px; text-align: left; }
+td { padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: rgba(255,255,255,.02); }
+
+/* ── Form ── */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.form-input, .form-textarea, .form-select {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 12px; border-radius: 6px; font-size: .83rem; font-family: inherit;
+  transition: border-color .18s;
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88,166,255,.1);
+}
+.form-textarea { resize: vertical; line-height: 1.5; }
+.form-hint { font-size: .72rem; color: var(--muted2); margin-top: 4px; }
+.form-select option { background: var(--surface2); }
+
+/* ── Toggle ── */
+.toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0; cursor: pointer;
+  background: var(--surface3); border: 1px solid var(--border2);
+  border-radius: 20px; transition: .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute; height: 14px; width: 14px; left: 2px; top: 2px;
+  background: var(--muted); border-radius: 50%; transition: .2s;
+}
+.toggle input:checked + .toggle-slider { background: rgba(63,185,80,.2); border-color: var(--green); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--green); }
+
+/* ── Badge ── */
+.badge { font-size: .68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.badge-green { background: rgba(63,185,80,.15); color: var(--green); }
+.badge-red { background: rgba(248,81,73,.15); color: var(--red); }
+.badge-orange { background: rgba(210,153,34,.15); color: var(--orange); }
+.badge-blue { background: rgba(88,166,255,.15); color: var(--accent); }
+.badge-purple { background: rgba(188,140,255,.15); color: var(--purple); }
+
+/* ── Drawer ── */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 300;
+  display: none; backdrop-filter: blur(2px);
+}
+.drawer-overlay.open { display: block; }
+.drawer {
+  position: fixed; right: 0; top: 0; bottom: 0; width: 480px; max-width: 95vw;
+  background: var(--surface); border-left: 1px solid var(--border);
+  z-index: 301; overflow-y: auto; transform: translateX(100%);
+  transition: transform .25s ease; padding: 24px;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-title { font-size: 1rem; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+.drawer-close { background: transparent; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 4px; border-radius: 4px; }
+.drawer-close:hover { color: var(--text); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 400;
+  display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
+}
+.modal-title { font-size: .95rem; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+
+/* ── Channel Cards ── */
+.channel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.channel-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px; transition: border-color .2s;
+}
+.channel-card:hover { border-color: var(--border2); }
+.channel-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.channel-card-name { font-weight: 700; font-size: .95rem; }
+.channel-card-meta { font-size: .78rem; color: var(--muted); margin-bottom: 6px; }
+.channel-card-stats { display: flex; gap: 16px; font-size: .78rem; margin-bottom: 10px; }
+.channel-card-stats span strong { color: var(--text); }
+.channel-card-dest { font-size: .75rem; color: var(--muted2); margin-bottom: 12px; padding: 6px 10px; background: var(--surface2); border-radius: 6px; }
+.channel-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Trigger Cards ── */
+.trigger-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.trigger-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.trigger-card-icon { font-size: 1.8rem; }
+.trigger-card-title { font-weight: 700; font-size: .92rem; }
+.trigger-card-desc { font-size: .78rem; color: var(--muted); line-height: 1.5; flex: 1; }
+.trigger-card-result {
+  font-size: .73rem; color: var(--muted); background: var(--surface2);
+  border-radius: 6px; padding: 6px 10px; min-height: 32px; word-break: break-all;
+}
+.result-ok { color: var(--green); }
+.result-fail { color: var(--red); }
+
+/* ── Task Log ── */
+.task-log { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.task-log-header { background: var(--surface2); padding: 10px 16px; font-size: .78rem; font-weight: 600; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+.task-log-list { list-style: none; }
+.task-log-item { padding: 8px 16px; border-top: 1px solid var(--border); font-size: .78rem; display: flex; align-items: center; gap: 10px; }
+.task-log-item:first-child { border-top: none; }
+.task-log-name { flex: 1; color: var(--text); }
+.task-log-time { color: var(--muted2); flex-shrink: 0; font-size: .72rem; }
+.task-log-status { flex-shrink: 0; }
+
+/* ── LLM Config ── */
+.llm-form { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; max-width: 640px; }
+
+/* ── Preview Modal Items ── */
+.preview-item { padding: 12px; background: var(--surface2); border-radius: 6px; margin-bottom: 10px; }
+.preview-item-title { font-size: .88rem; font-weight: 600; margin-bottom: 4px; }
+.preview-item-title a { color: var(--accent); text-decoration: none; }
+.preview-item-title a:hover { text-decoration: underline; }
+.preview-item-meta { display: flex; gap: 10px; font-size: .73rem; color: var(--muted); }
+.preview-item-summary { font-size: .78rem; color: var(--muted); margin-top: 4px; line-height: 1.5; font-style: italic; }
+
+/* ── Toast ── */
+#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 18px; border-radius: 8px; font-size: .82rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4); max-width: 320px;
+  animation: toastIn .2s ease;
+}
+.toast.success { border-color: rgba(63,185,80,.4); }
+.toast.error { border-color: rgba(248,81,73,.4); color: var(--red); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Range slider ── */
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: var(--surface3); border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+}
+.range-value { font-size: .85rem; font-weight: 700; color: var(--accent); margin-left: 8px; }
+
+/* ── Misc ── */
+.empty-state { text-align: center; padding: 48px 20px; color: var(--muted); font-size: .85rem; }
+.loading-dot::after { content: '…'; animation: ellipsis 1.2s infinite; }
+@keyframes ellipsis { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '…'; } }
+.inline-flex { display: inline-flex; align-items: center; gap: 4px; }
+.text-muted { color: var(--muted); }
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <span class="logo-icon">🦐</span>
+    <div class="logo-text">
+      <h1>虾人情报站</h1>
+      <div class="sub">Admin Panel v3</div>
+    </div>
+  </div>
+  <nav>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/admin" class="active">Admin</a>
+  </nav>
+</header>
+
+<!-- Main Layout -->
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-item active" onclick="showSection('sources')" id="nav-sources">
+      <span class="sidebar-icon">📡</span> 信息源
+    </div>
+    <div class="sidebar-item" onclick="showSection('channels')" id="nav-channels">
+      <span class="sidebar-icon">📢</span> 渠道
+    </div>
+    <div class="sidebar-item" onclick="showSection('llm')" id="nav-llm">
+      <span class="sidebar-icon">🤖</span> LLM 配置
+    </div>
+    <div class="sidebar-item" onclick="showSection('trigger')" id="nav-trigger">
+      <span class="sidebar-icon">⚡</span> 调度控制
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- ══════════════════════════════ 信息源 Section ══════════════════════════════ -->
+    <section class="section active" id="section-sources">
+      <div class="section-header">
+        <div class="section-title">📡 信息源管理</div>
+        <button class="btn btn-primary btn-sm" onclick="openSourceDrawer(null)">＋ 新增信息源</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th><th>类型</th><th>URL</th><th>24h采集</th><th>最近采集</th><th>状态</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="sources-tbody">
+            <tr><td colspan="7" class="empty-state">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════ 渠道 Section ══════════════════════════════ -->
+    <section class="section" id="section-channels">
+      <div class="section-header">
+        <div class="section-title">📢 渠道管理</div>
+        <button class="btn btn-primary btn-sm" onclick="openChannelDrawer(null)">＋ 新增渠道</button>
+      </div>
+      <div class="channel-grid" id="channels-grid">
+        <div class="empty-state">加载中…</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════ LLM Section ══════════════════════════════ -->
+    <section class="section" id="section-llm">
+      <div class="section-header">
+        <div class="section-title">🤖 LLM 配置</div>
+      </div>
+      <div class="llm-form">
+        <div class="form-group">
+          <label class="form-label">Batch Size</label>
+          <input type="number" class="form-input" id="llm-batch-size" min="1" max="50" value="20">
+          <div class="form-hint">每批发给 LLM 的条数（1-50）</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">内容截断长度</label>
+          <input type="number" class="form-input" id="llm-max-content" min="50" max="500" value="150">
+          <div class="form-hint">每条内容发送给 LLM 的最大字符数（50-500）</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">LLM 超时（秒）</label>
+          <input type="number" class="form-input" id="llm-timeout" min="10" max="600" value="120">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Score Prompt Template</label>
+          <textarea class="form-textarea" id="llm-prompt" rows="14" style="height:300px;font-family:monospace;font-size:.8rem;"></textarea>
+          <div class="form-hint">占位符：<code style="color:var(--accent)">{count}</code>（条数）和 <code style="color:var(--accent)">{items_json}</code>（JSON 数组）</div>
+        </div>
+        <button class="btn btn-primary" id="llm-save-btn" onclick="saveLLMConfig()">💾 保存配置</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════ 调度 Section ══════════════════════════════ -->
+    <section class="section" id="section-trigger">
+      <div class="section-header">
+        <div class="section-title">⚡ 调度控制</div>
+      </div>
+
+      <div class="trigger-grid">
+        <!-- 全量采集 -->
+        <div class="trigger-card" id="card-collect">
+          <div class="trigger-card-icon">📥</div>
+          <div class="trigger-card-title">全量采集</div>
+          <div class="trigger-card-desc">采集所有 enabled 数据源的最新内容</div>
+          <div class="trigger-card-result" id="result-collect">—</div>
+          <button class="btn btn-primary" id="btn-collect" onclick="triggerAction('collect')">立即执行</button>
+        </div>
+
+        <!-- LLM 分析 -->
+        <div class="trigger-card" id="card-analyze">
+          <div class="trigger-card-icon">🤖</div>
+          <div class="trigger-card-title">LLM 分析</div>
+          <div class="trigger-card-desc">对未分析的条目批量调用 LLM 评分</div>
+          <div class="trigger-card-result" id="result-analyze">—</div>
+          <button class="btn btn-primary" id="btn-analyze" onclick="triggerAction('analyze')">立即执行</button>
+        </div>
+
+        <!-- 路由分发 -->
+        <div class="trigger-card" id="card-route">
+          <div class="trigger-card-icon">🔀</div>
+          <div class="trigger-card-title">路由分发</div>
+          <div class="trigger-card-desc">将已分析条目按频道规则路由分发</div>
+          <div class="trigger-card-result" id="result-route">—</div>
+          <button class="btn btn-primary" id="btn-route" onclick="triggerAction('route')">立即执行</button>
+        </div>
+
+        <!-- 手动推送 -->
+        <div class="trigger-card" id="card-push">
+          <div class="trigger-card-icon">📤</div>
+          <div class="trigger-card-title">手动推送</div>
+          <div class="trigger-card-desc">选择频道手动触发推送</div>
+          <div class="form-group" style="margin-bottom:8px">
+            <select class="form-select" id="push-channel-select" style="margin-bottom:6px"></select>
+            <input type="number" class="form-input" id="push-limit" value="10" min="1" max="50" placeholder="推送条数">
+          </div>
+          <div class="trigger-card-result" id="result-push">—</div>
+          <button class="btn btn-primary" id="btn-push" onclick="triggerPush()">立即推送</button>
+        </div>
+      </div>
+
+      <!-- 任务日志 -->
+      <div class="task-log">
+        <div class="task-log-header">
+          <span>📋 最近任务记录</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadTaskLog()">刷新</button>
+        </div>
+        <ul class="task-log-list" id="task-log-list">
+          <li class="task-log-item"><span class="task-log-name text-muted">暂无任务记录</span></li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════ Source Drawer ══════════════════════════════ -->
+<div class="drawer-overlay" id="source-drawer-overlay" onclick="closeSourceDrawer()"></div>
+<div class="drawer" id="source-drawer">
+  <div class="drawer-title">
+    <span id="source-drawer-title">新增信息源</span>
+    <button class="drawer-close" onclick="closeSourceDrawer()">✕</button>
+  </div>
+  <div class="form-group">
+    <label class="form-label">名称 *</label>
+    <input type="text" class="form-input" id="src-name" placeholder="如 techcrunch_rss">
+  </div>
+  <div class="form-group">
+    <label class="form-label">类型 *</label>
+    <select class="form-select" id="src-type" onchange="onSrcTypeChange()">
+      <option value="rss">RSS</option>
+      <option value="hn_api">Hacker News API</option>
+      <option value="github_trending">GitHub Trending</option>
+    </select>
+  </div>
+  <div class="form-group" id="src-url-group">
+    <label class="form-label">RSS URL</label>
+    <input type="text" class="form-input" id="src-url" placeholder="https://example.com/feed/">
+  </div>
+  <div class="form-group">
+    <label class="form-label">描述</label>
+    <textarea class="form-textarea" id="src-desc" rows="3" placeholder="数据源描述（可选）"></textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px">
+      启用状态
+      <label class="toggle"><input type="checkbox" id="src-enabled" checked><span class="toggle-slider"></span></label>
+    </label>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-primary" id="source-save-btn" onclick="saveSource()">💾 保存</button>
+    <button class="btn btn-ghost" onclick="closeSourceDrawer()">取消</button>
+  </div>
+  <input type="hidden" id="src-editing-id">
+</div>
+
+<!-- ══════════════════════════════ Channel Drawer ══════════════════════════════ -->
+<div class="drawer-overlay" id="channel-drawer-overlay" onclick="closeChannelDrawer()"></div>
+<div class="drawer" id="channel-drawer">
+  <div class="drawer-title">
+    <span id="channel-drawer-title">新增渠道</span>
+    <button class="drawer-close" onclick="closeChannelDrawer()">✕</button>
+  </div>
+  <div class="form-group">
+    <label class="form-label">频道名称 *</label>
+    <input type="text" class="form-input" id="ch-name" placeholder="如 AI技术动态">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Filter Prompt</label>
+    <textarea class="form-textarea" id="ch-prompt" rows="10" style="height:200px" placeholder="描述你关注的内容类型…"></textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px">
+      Min Score：<span class="range-value" id="ch-score-val">0.70</span>
+    </label>
+    <input type="range" id="ch-score" min="0" max="1" step="0.05" value="0.7" oninput="document.getElementById('ch-score-val').textContent=parseFloat(this.value).toFixed(2)">
+  </div>
+  <div class="form-group">
+    <label class="form-label">来源过滤（留空=不限）</label>
+    <div id="ch-source-checkboxes" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" style="display:flex;align-items:center;gap:8px">
+      启用状态
+      <label class="toggle"><input type="checkbox" id="ch-enabled" checked><span class="toggle-slider"></span></label>
+    </label>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-primary" id="channel-save-btn" onclick="saveChannel()">💾 保存</button>
+    <button class="btn btn-ghost" onclick="closeChannelDrawer()">取消</button>
+  </div>
+  <input type="hidden" id="ch-editing-id">
+</div>
+
+<!-- ══════════════════════════════ Preview Modal ══════════════════════════════ -->
+<div class="modal-overlay" id="preview-modal" onclick="if(event.target===this)closePreviewModal()">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="preview-modal-title">📢 预览内容</span>
+      <button class="drawer-close" onclick="closePreviewModal()">✕</button>
+    </div>
+    <div id="preview-modal-content">加载中…</div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// 工具函数
+// ════════════════════════════════════════════════════════════
+const API = '';
+
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+async function apiFetch(path, opts={}) {
+  const r = await fetch(API + path, {
+    headers: {'Content-Type': 'application/json'},
+    ...opts
+  });
+  const json = await r.json();
+  if (!r.ok) throw new Error(json.error || r.statusText);
+  return json;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleString('zh-CN', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+
+function fmtDuration(ms) {
+  if (!ms) return '';
+  if (ms < 1000) return ms + 'ms';
+  return (ms/1000).toFixed(1) + 's';
+}
+
+function confirm2(msg) {
+  return window.confirm(msg);
+}
+
+// ════════════════════════════════════════════════════════════
+// 导航
+// ════════════════════════════════════════════════════════════
+const SECTIONS = ['sources', 'channels', 'llm', 'trigger'];
+let _allSources = [];
+
+function showSection(name) {
+  SECTIONS.forEach(s => {
+    document.getElementById('section-' + s).classList.toggle('active', s === name);
+    document.getElementById('nav-' + s).classList.toggle('active', s === name);
+  });
+  if (name === 'sources') loadSources();
+  if (name === 'channels') loadChannels();
+  if (name === 'llm') loadLLMConfig();
+  if (name === 'trigger') { loadChannelsForSelect(); loadTaskLog(); }
+}
+
+// ════════════════════════════════════════════════════════════
+// 信息源管理
+// ════════════════════════════════════════════════════════════
+async function loadSources() {
+  try {
+    const sources = await apiFetch('/admin/sources');
+    _allSources = sources;
+    renderSources(sources);
+  } catch(e) {
+    toast('加载信息源失败: ' + e.message, 'error');
+  }
+}
+
+function renderSources(sources) {
+  const tbody = document.getElementById('sources-tbody');
+  if (!sources.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无数据源</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sources.map(s => {
+    const url = s.config?.url || '—';
+    const shortUrl = url.length > 40 ? url.slice(0, 37) + '…' : url;
+    const lastFetch = fmtTime(s.last_fetch);
+    return `
+    <tr>
+      <td><strong>${escHtml(s.name)}</strong><br><span class="text-muted" style="font-size:.72rem">${escHtml(s.description||'')}</span></td>
+      <td><span class="badge badge-blue">${escHtml(s.type)}</span></td>
+      <td><a href="${escHtml(url)}" target="_blank" style="color:var(--muted);font-size:.75rem" title="${escHtml(url)}">${escHtml(shortUrl)}</a></td>
+      <td>${s.items_24h ?? 0}</td>
+      <td style="font-size:.75rem;color:var(--muted)">${lastFetch}</td>
+      <td>
+        <label class="toggle" title="${s.enabled ? '点击禁用' : '点击启用'}">
+          <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleSource(${s.id}, this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="crawl-btn-${s.id}" onclick="crawlSource(${s.id}, '${escHtml(s.name)}')">🔄 采集</button>
+          <button class="btn btn-ghost btn-sm" onclick="openSourceDrawer(${s.id})">✏️ 编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSource(${s.id}, '${escHtml(s.name)}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function toggleSource(id, enabled) {
+  try {
+    await apiFetch('/admin/sources/' + id, {method:'PUT', body: JSON.stringify({enabled})});
+    toast(enabled ? '已启用' : '已禁用', 'success');
+  } catch(e) {
+    toast('操作失败: ' + e.message, 'error');
+    loadSources();
+  }
+}
+
+async function crawlSource(id, name) {
+  const btn = document.getElementById('crawl-btn-' + id);
+  btn.disabled = true;
+  btn.textContent = '⏳ 采集中…';
+  try {
+    const r = await apiFetch('/admin/sources/' + id + '/crawl', {method:'POST'});
+    const taskId = r.task_id;
+    // 轮询状态
+    const poll = async () => {
+      const s = await apiFetch('/admin/trigger/' + taskId + '/status');
+      if (s.status === 'running') {
+        setTimeout(poll, 1500);
+      } else if (s.status === 'done') {
+        btn.disabled = false;
+        btn.textContent = '✅ ' + (s.result?.items_collected ?? 0) + '条';
+        toast(`[${name}] 采集完成: ${s.result?.items_collected ?? 0} 条`, 'success');
+        setTimeout(() => { btn.textContent = '🔄 采集'; }, 4000);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '❌ 失败';
+        toast(`[${name}] 采集失败: ${s.error}`, 'error');
+        setTimeout(() => { btn.textContent = '🔄 采集'; }, 4000);
+      }
+    };
+    setTimeout(poll, 1000);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '🔄 采集';
+    toast('触发失败: ' + e.message, 'error');
+  }
+}
+
+async function deleteSource(id, name) {
+  if (!confirm2(`确认删除（禁用）信息源「${name}」？`)) return;
+  try {
+    await apiFetch('/admin/sources/' + id, {method:'DELETE'});
+    toast('已删除（已禁用）', 'success');
+    loadSources();
+  } catch(e) {
+    toast('删除失败: ' + e.message, 'error');
+  }
+}
+
+// Source Drawer
+let _editingSourceId = null;
+function openSourceDrawer(id) {
+  _editingSourceId = id;
+  document.getElementById('source-drawer-title').textContent = id ? '编辑信息源' : '新增信息源';
+  if (id) {
+    const s = _allSources.find(x => x.id === id);
+    if (s) {
+      document.getElementById('src-name').value = s.name || '';
+      document.getElementById('src-type').value = s.type || 'rss';
+      document.getElementById('src-url').value = s.config?.url || '';
+      document.getElementById('src-desc').value = s.description || '';
+      document.getElementById('src-enabled').checked = s.enabled;
+      onSrcTypeChange();
+    }
+  } else {
+    document.getElementById('src-name').value = '';
+    document.getElementById('src-type').value = 'rss';
+    document.getElementById('src-url').value = '';
+    document.getElementById('src-desc').value = '';
+    document.getElementById('src-enabled').checked = true;
+    onSrcTypeChange();
+  }
+  document.getElementById('source-drawer-overlay').classList.add('open');
+  document.getElementById('source-drawer').classList.add('open');
+}
+
+function closeSourceDrawer() {
+  document.getElementById('source-drawer-overlay').classList.remove('open');
+  document.getElementById('source-drawer').classList.remove('open');
+}
+
+function onSrcTypeChange() {
+  const t = document.getElementById('src-type').value;
+  document.getElementById('src-url-group').style.display = t === 'rss' ? '' : 'none';
+}
+
+async function saveSource() {
+  const name = document.getElementById('src-name').value.trim();
+  if (!name) { toast('名称不能为空', 'error'); return; }
+  const type = document.getElementById('src-type').value;
+  const url = document.getElementById('src-url').value.trim();
+  const description = document.getElementById('src-desc').value.trim();
+  const enabled = document.getElementById('src-enabled').checked;
+  const config = type === 'rss' ? {url} : {};
+  const btn = document.getElementById('source-save-btn');
+  btn.disabled = true;
+  try {
+    if (_editingSourceId) {
+      await apiFetch('/admin/sources/' + _editingSourceId, {
+        method: 'PUT', body: JSON.stringify({name, description, config, enabled})
+      });
+      toast('更新成功', 'success');
+    } else {
+      await apiFetch('/admin/sources', {
+        method: 'POST', body: JSON.stringify({name, type, description, config, enabled})
+      });
+      toast('创建成功', 'success');
+    }
+    closeSourceDrawer();
+    loadSources();
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 渠道管理
+// ════════════════════════════════════════════════════════════
+let _allChannels = [];
+
+async function loadChannels() {
+  try {
+    const channels = await apiFetch('/admin/channels');
+    _allChannels = channels;
+    renderChannels(channels);
+  } catch(e) {
+    toast('加载渠道失败: ' + e.message, 'error');
+  }
+}
+
+function renderChannels(channels) {
+  const grid = document.getElementById('channels-grid');
+  if (!channels.length) {
+    grid.innerHTML = '<div class="empty-state">暂无渠道，点击「＋ 新增渠道」创建</div>';
+    return;
+  }
+  grid.innerHTML = channels.map(ch => {
+    const destText = ch.destinations?.length
+      ? ch.destinations.map(d => `${d.type} ${String(d.target||'').slice(0,10)}…`).join(', ')
+      : '（无推送目标）';
+    const sourceText = ch.source_filter?.length ? ch.source_filter.join(', ') : '无限制';
+    return `
+    <div class="channel-card">
+      <div class="channel-card-header">
+        <div class="channel-card-name">📢 ${escHtml(ch.name)}</div>
+        <label class="toggle" title="${ch.enabled ? '点击禁用' : '点击启用'}">
+          <input type="checkbox" ${ch.enabled ? 'checked' : ''} onchange="toggleChannel(${ch.id}, this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="channel-card-meta">min_score: <strong>${(ch.min_score||0).toFixed(2)}</strong> &nbsp;|&nbsp; 来源: ${escHtml(sourceText)}</div>
+      <div class="channel-card-stats">
+        <span>待推: <strong>${ch.pending ?? 0}</strong> 条</span>
+        <span>已推: <strong>${ch.pushed_total ?? 0}</strong> 条</span>
+      </div>
+      <div class="channel-card-dest">🔔 ${escHtml(destText)}</div>
+      <div class="channel-card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openChannelDrawer(${ch.id})">✏️ 编辑</button>
+        <button class="btn btn-ghost btn-sm" onclick="previewChannel(${ch.id}, '${escHtml(ch.name)}')">👁️ 预览</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteChannel(${ch.id}, '${escHtml(ch.name)}')">🗑️ 删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleChannel(id, enabled) {
+  try {
+    await apiFetch('/admin/channels/' + id, {method:'PUT', body: JSON.stringify({enabled})});
+    toast(enabled ? '已启用' : '已禁用', 'success');
+  } catch(e) {
+    toast('操作失败: ' + e.message, 'error');
+    loadChannels();
+  }
+}
+
+async function deleteChannel(id, name) {
+  if (!confirm2(`确认删除渠道「${name}」？此操作不可恢复！`)) return;
+  try {
+    await apiFetch('/admin/channels/' + id, {method:'DELETE'});
+    toast('已删除', 'success');
+    loadChannels();
+  } catch(e) {
+    toast('删除失败: ' + e.message, 'error');
+  }
+}
+
+async function previewChannel(id, name) {
+  document.getElementById('preview-modal-title').textContent = `👁️ ${name} — 待推预览`;
+  document.getElementById('preview-modal-content').innerHTML = '<div class="text-muted">加载中…</div>';
+  document.getElementById('preview-modal').classList.add('open');
+  try {
+    const items = await apiFetch('/admin/channels/' + id + '/preview');
+    if (!items.length) {
+      document.getElementById('preview-modal-content').innerHTML = '<div class="empty-state">暂无待推内容</div>';
+      return;
+    }
+    document.getElementById('preview-modal-content').innerHTML = items.map((item, i) => `
+    <div class="preview-item">
+      <div class="preview-item-title">
+        <span style="color:var(--muted);margin-right:6px">${i+1}.</span>
+        <a href="${escHtml(item.url||'#')}" target="_blank">${escHtml(item.title||'无标题')}</a>
+      </div>
+      <div class="preview-item-meta">
+        <span>评分: <strong style="color:var(--accent)">${(item.score||0).toFixed(2)}</strong></span>
+        ${item.analysis_tags?.length ? '<span>标签: ' + item.analysis_tags.slice(0,3).map(t=>'<span class="badge badge-blue">'+escHtml(t)+'</span>').join(' ') + '</span>' : ''}
+      </div>
+      ${item.summary ? `<div class="preview-item-summary">${escHtml(item.summary)}</div>` : ''}
+    </div>`).join('');
+  } catch(e) {
+    document.getElementById('preview-modal-content').innerHTML = `<div class="text-muted">加载失败: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function closePreviewModal() {
+  document.getElementById('preview-modal').classList.remove('open');
+}
+
+// Channel Drawer
+let _editingChannelId = null;
+function openChannelDrawer(id) {
+  _editingChannelId = id;
+  document.getElementById('channel-drawer-title').textContent = id ? '编辑渠道' : '新增渠道';
+  // 填充来源 checkboxes
+  const cbContainer = document.getElementById('ch-source-checkboxes');
+  cbContainer.innerHTML = _allSources.map(s => `
+    <label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer;padding:3px 8px;background:var(--surface2);border-radius:6px">
+      <input type="checkbox" class="ch-source-cb" value="${escHtml(s.name)}" style="accent-color:var(--accent)">
+      ${escHtml(s.name)}
+    </label>`).join('');
+
+  if (id) {
+    const ch = _allChannels.find(x => x.id === id);
+    if (ch) {
+      document.getElementById('ch-name').value = ch.name || '';
+      document.getElementById('ch-prompt').value = ch.filter_prompt || '';
+      const score = ch.min_score || 0.7;
+      document.getElementById('ch-score').value = score;
+      document.getElementById('ch-score-val').textContent = score.toFixed(2);
+      document.getElementById('ch-enabled').checked = ch.enabled;
+      // 设置 source filter
+      const selectedSources = ch.source_filter || [];
+      cbContainer.querySelectorAll('.ch-source-cb').forEach(cb => {
+        cb.checked = selectedSources.includes(cb.value);
+      });
+    }
+  } else {
+    document.getElementById('ch-name').value = '';
+    document.getElementById('ch-prompt').value = '';
+    document.getElementById('ch-score').value = 0.7;
+    document.getElementById('ch-score-val').textContent = '0.70';
+    document.getElementById('ch-enabled').checked = true;
+  }
+  document.getElementById('channel-drawer-overlay').classList.add('open');
+  document.getElementById('channel-drawer').classList.add('open');
+}
+
+function closeChannelDrawer() {
+  document.getElementById('channel-drawer-overlay').classList.remove('open');
+  document.getElementById('channel-drawer').classList.remove('open');
+}
+
+async function saveChannel() {
+  const name = document.getElementById('ch-name').value.trim();
+  if (!name) { toast('频道名称不能为空', 'error'); return; }
+  const filter_prompt = document.getElementById('ch-prompt').value;
+  const min_score = parseFloat(document.getElementById('ch-score').value);
+  const enabled = document.getElementById('ch-enabled').checked;
+  const checked = [...document.querySelectorAll('.ch-source-cb:checked')].map(cb => cb.value);
+  const source_filter = checked.length ? checked : null;
+  const btn = document.getElementById('channel-save-btn');
+  btn.disabled = true;
+  try {
+    if (_editingChannelId) {
+      await apiFetch('/admin/channels/' + _editingChannelId, {
+        method: 'PUT', body: JSON.stringify({name, filter_prompt, min_score, source_filter, enabled})
+      });
+      toast('更新成功', 'success');
+    } else {
+      await apiFetch('/admin/channels', {
+        method: 'POST', body: JSON.stringify({name, filter_prompt, min_score, source_filter, enabled})
+      });
+      toast('创建成功', 'success');
+    }
+    closeChannelDrawer();
+    loadChannels();
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// LLM 配置
+// ════════════════════════════════════════════════════════════
+async function loadLLMConfig() {
+  try {
+    const cfg = await apiFetch('/admin/llm/config');
+    document.getElementById('llm-batch-size').value = cfg.batch_size ?? 20;
+    document.getElementById('llm-max-content').value = cfg.max_content_length ?? 150;
+    document.getElementById('llm-timeout').value = cfg.llm_timeout ?? 120;
+    document.getElementById('llm-prompt').value = cfg.score_prompt_template ?? '';
+  } catch(e) {
+    toast('加载 LLM 配置失败: ' + e.message, 'error');
+  }
+}
+
+async function saveLLMConfig() {
+  const btn = document.getElementById('llm-save-btn');
+  btn.disabled = true;
+  try {
+    await apiFetch('/admin/llm/config', {
+      method: 'PUT',
+      body: JSON.stringify({
+        batch_size: parseInt(document.getElementById('llm-batch-size').value),
+        max_content_length: parseInt(document.getElementById('llm-max-content').value),
+        llm_timeout: parseInt(document.getElementById('llm-timeout').value),
+        score_prompt_template: document.getElementById('llm-prompt').value,
+      })
+    });
+    toast('LLM 配置已保存', 'success');
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 调度控制
+// ════════════════════════════════════════════════════════════
+async function loadChannelsForSelect() {
+  try {
+    const channels = _allChannels.length ? _allChannels : await apiFetch('/admin/channels');
+    _allChannels = channels;
+    const sel = document.getElementById('push-channel-select');
+    sel.innerHTML = channels.map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`).join('');
+  } catch(e) {}
+}
+
+const _pollIntervals = {};
+
+async function triggerAction(action) {
+  const btn = document.getElementById('btn-' + action);
+  const resultEl = document.getElementById('result-' + action);
+  btn.disabled = true;
+  btn.textContent = '⏳ 执行中…';
+  resultEl.textContent = '启动中…';
+  resultEl.className = 'trigger-card-result';
+  try {
+    const r = await apiFetch('/admin/trigger/' + action, {method:'POST'});
+    const taskId = r.task_id;
+    resultEl.textContent = 'task: ' + taskId.slice(0,8) + '…';
+    // 轮询
+    const poll = async () => {
+      try {
+        const s = await apiFetch('/admin/trigger/' + taskId + '/status');
+        if (s.status === 'running') {
+          setTimeout(poll, 2000);
+        } else if (s.status === 'done') {
+          btn.disabled = false;
+          btn.textContent = '立即执行';
+          resultEl.className = 'trigger-card-result result-ok';
+          const res = s.result || {};
+          const info = Object.entries(res).map(([k,v]) => `${k}=${v}`).join(' ') || '完成';
+          resultEl.textContent = `✅ ${info} (${fmtDuration(s.duration_ms)})`;
+          loadTaskLog();
+          toast(`${action} 完成`, 'success');
+        } else {
+          btn.disabled = false;
+          btn.textContent = '立即执行';
+          resultEl.className = 'trigger-card-result result-fail';
+          resultEl.textContent = '❌ ' + (s.error || '失败');
+          loadTaskLog();
+          toast(`${action} 失败: ${s.error}`, 'error');
+        }
+      } catch(e) {
+        setTimeout(poll, 3000);
+      }
+    };
+    setTimeout(poll, 1500);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '立即执行';
+    resultEl.textContent = '❌ ' + e.message;
+    resultEl.className = 'trigger-card-result result-fail';
+    toast('触发失败: ' + e.message, 'error');
+  }
+}
+
+async function triggerPush() {
+  const channel = document.getElementById('push-channel-select').value;
+  const limit = parseInt(document.getElementById('push-limit').value) || 10;
+  const btn = document.getElementById('btn-push');
+  const resultEl = document.getElementById('result-push');
+  if (!channel) { toast('请选择频道', 'error'); return; }
+  btn.disabled = true;
+  btn.textContent = '⏳ 推送中…';
+  resultEl.textContent = '启动中…';
+  resultEl.className = 'trigger-card-result';
+  try {
+    const r = await apiFetch('/admin/trigger/push', {method:'POST', body: JSON.stringify({channel, limit})});
+    const taskId = r.task_id;
+    resultEl.textContent = 'task: ' + taskId.slice(0,8) + '…';
+    const poll = async () => {
+      try {
+        const s = await apiFetch('/admin/trigger/' + taskId + '/status');
+        if (s.status === 'running') {
+          setTimeout(poll, 2000);
+        } else if (s.status === 'done') {
+          btn.disabled = false; btn.textContent = '立即推送';
+          resultEl.className = 'trigger-card-result result-ok';
+          resultEl.textContent = `✅ 推送 ${s.result?.pushed ?? 0} 条 (${fmtDuration(s.duration_ms)})`;
+          loadTaskLog();
+          toast(`推送完成: ${s.result?.pushed ?? 0} 条`, 'success');
+        } else {
+          btn.disabled = false; btn.textContent = '立即推送';
+          resultEl.className = 'trigger-card-result result-fail';
+          resultEl.textContent = '❌ ' + (s.error || '失败');
+          loadTaskLog();
+          toast('推送失败: ' + (s.error || ''), 'error');
+        }
+      } catch(e) { setTimeout(poll, 3000); }
+    };
+    setTimeout(poll, 1500);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '立即推送';
+    resultEl.textContent = '❌ ' + e.message;
+    resultEl.className = 'trigger-card-result result-fail';
+    toast('触发失败: ' + e.message, 'error');
+  }
+}
+
+async function loadTaskLog() {
+  try {
+    const tasks = await apiFetch('/admin/trigger/tasks');
+    const list = document.getElementById('task-log-list');
+    if (!tasks.length) {
+      list.innerHTML = '<li class="task-log-item"><span class="task-log-name text-muted">暂无任务记录</span></li>';
+      return;
+    }
+    list.innerHTML = tasks.map(t => {
+      const statusBadge = t.status === 'done'
+        ? '<span class="badge badge-green">✓ 完成</span>'
+        : t.status === 'failed'
+        ? '<span class="badge badge-red">✗ 失败</span>'
+        : '<span class="badge badge-orange">⏳ 运行中</span>';
+      const duration = t.duration_ms ? ` · ${fmtDuration(t.duration_ms)}` : '';
+      return `
+      <li class="task-log-item">
+        <span class="task-log-name">${escHtml(t.name || t.task_id)}</span>
+        <span class="task-log-time">${fmtTime(t.started_at ? new Date(t.started_at * 1000).toISOString() : '')}${duration}</span>
+        <span class="task-log-status">${statusBadge}</span>
+      </li>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════════
+// 初始化
+// ════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadSources();
+});
+</script>
+</body>
+</html>
