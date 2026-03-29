@@ -37,17 +37,18 @@ def _parse_time(entry):
 
 def _fetch_one_source(source_id_int, source_name, url, limit=20):
     """
-    采集单个 RSS 源，返回 list[dict]。
+    采集单个 RSS 源，返回 (list[dict], bozo_failed: bool)。
     不写 DB，由调用方统一处理。
+    bozo_failed=True 表示 bozo=True 且 entries 为空（完全失败）。
     """
     try:
         feed = feedparser.parse(url)
         if feed.bozo and not feed.entries:
             logger.warning(f'RSS parse warning [{source_name}]: {feed.bozo_exception}')
-            return []
+            return [], True
     except Exception as e:
         logger.error(f'RSS fetch failed [{source_name}]: {e}')
-        return []
+        return [], True
 
     results = []
     for entry in feed.entries[:limit]:
@@ -68,7 +69,51 @@ def _fetch_one_source(source_id_int, source_name, url, limit=20):
         })
 
     logger.info(f'RSS [{source_name}] 采集完成: {len(results)} 条')
-    return results
+    return results, False
+
+
+def _record_source_failure(source_id_int: int, source_name: str):
+    """
+    记录 RSS 源的完全失败（bozo=True 且 entries 为空）。
+    在 t_data_sources.config 中更新 fail_count 和 last_fail_at。
+    当 fail_count >= 5 时自动将源标记 enabled=false 并记录告警。
+    """
+    from datetime import datetime, timezone, timedelta
+    now_str = datetime.now(timezone(timedelta(hours=8))).isoformat()
+    FAIL_THRESHOLD = 5
+
+    try:
+        row = execute_all(
+            "SELECT config FROM t_data_sources WHERE id=%s",
+            (source_id_int,)
+        )
+        if not row:
+            return
+        config = row[0]['config'] if isinstance(row[0]['config'], dict) else json.loads(row[0]['config'])
+
+        fail_count = int(config.get('fail_count', 0)) + 1
+        config['fail_count'] = fail_count
+        config['last_fail_at'] = now_str
+
+        if fail_count >= FAIL_THRESHOLD:
+            # 禁用该源
+            execute(
+                "UPDATE t_data_sources SET config=%s, enabled=false, updated_at=NOW() WHERE id=%s",
+                (json.dumps(config), source_id_int)
+            )
+            logger.warning(
+                f'RSS 源 [{source_name}] 连续失败 {fail_count} 次，已自动禁用（enabled=false）'
+            )
+        else:
+            execute(
+                "UPDATE t_data_sources SET config=%s, updated_at=NOW() WHERE id=%s",
+                (json.dumps(config), source_id_int)
+            )
+            logger.info(
+                f'RSS 源 [{source_name}] 记录失败 fail_count={fail_count}（阈值 {FAIL_THRESHOLD}）'
+            )
+    except Exception as e:
+        logger.error(f'记录 [{source_name}] 失败信息异常: {e}')
 
 
 def run(task_id: str, limit_per_source=20):
@@ -102,7 +147,11 @@ def run(task_id: str, limit_per_source=20):
             continue
 
         crawler = BaseCrawler(task_id, source_name)
-        items   = _fetch_one_source(source_id_int, source_name, url, limit=limit_per_source)
+        items, bozo_failed = _fetch_one_source(source_id_int, source_name, url, limit=limit_per_source)
+
+        # P1-3：记录完全失败的源（bozo=True 且 entries 为空）
+        if bozo_failed:
+            _record_source_failure(source_id_int, source_name)
         s_success = s_failed = 0
 
         for item in items:

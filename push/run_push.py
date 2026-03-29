@@ -33,11 +33,15 @@ def _build_window_str() -> str:
 
 
 def _get_or_create_push_task() -> str:
-    """获取当天最新 task_id，没有则新建 push 专用任务"""
+    """
+    获取当天最近一次 route phase 的 task_id，确保 push 与同一次采集任务关联。
+    若当天没有 route sub_task，则新建 push 专用任务。
+    """
     row = execute_one(
         """
-        SELECT task_id FROM t_tasks
-        WHERE DATE(started_at AT TIME ZONE 'Asia/Shanghai') = CURRENT_DATE
+        SELECT task_id FROM t_sub_tasks
+        WHERE phase = 'route'
+          AND DATE(started_at AT TIME ZONE 'Asia/Shanghai') = CURRENT_DATE
         ORDER BY started_at DESC LIMIT 1
         """
     )

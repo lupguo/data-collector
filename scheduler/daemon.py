@@ -36,17 +36,10 @@ LOG_DIR = os.path.join(PROJECT_ROOT, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # ─────────────────────────────────────────────
-# 日志配置
+# 日志配置：统一使用 utils.logging_setup，避免双写
 # ─────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(os.path.join(LOG_DIR, 'scheduler.log'), encoding='utf-8'),
-    ]
-)
-logger = logging.getLogger('scheduler.daemon')
+from utils.logging_setup import setup_logging
+logger = setup_logging('scheduler.daemon', log_file='scheduler.log')
 
 # ─────────────────────────────────────────────
 # 数据库
@@ -457,7 +450,8 @@ def main():
                     )
     except (KeyboardInterrupt, SystemExit):
         logger.info('调度守护进程退出')
-        _scheduler.shutdown(wait=False)
+        if _scheduler.running:
+            _scheduler.shutdown(wait=False)
 
 
 if __name__ == '__main__':

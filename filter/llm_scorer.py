@@ -50,13 +50,48 @@ SCORE_PROMPT_TEMPLATE = _DEFAULT_PROMPT
 # LLM 调用
 # ─────────────────────────────────────────────
 
+def _find_openclaw() -> str:
+    """
+    查找 openclaw 可执行文件的绝对路径。
+    优先用 shutil.which（走完整搜索路径），找不到时 fallback 到已知安装位置。
+    """
+    import shutil
+    # 先在当前 PATH 下找
+    path = shutil.which('openclaw')
+    if path:
+        return path
+    # fallback：已知 nvm 安装位置
+    fallback = '/usr/local/lib/.nvm/versions/node/v22.17.0/bin/openclaw'
+    if os.path.isfile(fallback):
+        return fallback
+    return 'openclaw'  # 最后兜底，让 subprocess 报错时有明确信息
+
+
 def _call_llm(prompt: str) -> str:
     """调用 openclaw agent CLI，返回原始输出字符串"""
+    import shutil
     timeout = _get_timeout()
+
+    openclaw_bin = _find_openclaw()
+
+    # 构造包含常见路径的 PATH 环境变量，确保子进程能找到 openclaw 及其依赖
+    env = os.environ.copy()
+    extra_paths = [
+        os.path.dirname(openclaw_bin),
+        '/usr/local/lib/.nvm/versions/node/v22.17.0/bin',
+        '/usr/local/bin',
+        '/usr/bin',
+        '/bin',
+    ]
+    existing_path = env.get('PATH', '')
+    combined = ':'.join(p for p in extra_paths if p not in existing_path.split(':'))
+    if combined:
+        env['PATH'] = combined + ':' + existing_path
+
     try:
         result = subprocess.run(
-            ['openclaw', 'agent', '--agent', 'main', '--message', prompt],
-            capture_output=True, text=True, timeout=timeout
+            [openclaw_bin, 'agent', '--agent', 'main', '--message', prompt],
+            capture_output=True, text=True, timeout=timeout, env=env
         )
         if result.returncode != 0:
             logger.error(f'openclaw agent 失败: {result.stderr[:200]}')
