@@ -128,8 +128,7 @@ def run(task_id: str, since='daily', limit=25):
                     (task_id, sub_task_id, source_id, external_id, title, url,
                      content, metadata, fetched_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                ON CONFLICT (url, date_trunc('day', fetched_at AT TIME ZONE 'Asia/Shanghai'))
-                DO NOTHING
+                ON CONFLICT (url) DO NOTHING
                 """,
                 (
                     task_id,

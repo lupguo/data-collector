@@ -23,6 +23,7 @@ import logging
 import argparse
 import subprocess
 import threading
+import shlex
 import json
 from datetime import datetime, timezone
 from typing import Dict, Optional
@@ -154,8 +155,8 @@ def _run_job(job_id: str, cmd: str, timeout_sec: int):
         logger.error(f'[{job_id}] 创建 task 记录失败: {e}')
         task_id = None
 
-    # 拼接命令：venv/bin/python3 <cmd>
-    cmd_parts = [VENV_PYTHON] + cmd.split()
+    # 拼接命令：venv/bin/python3 <cmd>（用 shlex.split 正确处理带引号的参数）
+    cmd_parts = [VENV_PYTHON] + shlex.split(cmd)
 
     try:
         proc = subprocess.run(
