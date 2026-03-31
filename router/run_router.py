@@ -39,6 +39,7 @@ def route_channel(task_id: str, channel: dict):
             JOIN t_raw_items ri ON ri.id = a.item_id
             JOIN t_data_sources ds ON ds.id = ri.source_id
             WHERE a.relevance_score >= %s
+              AND a.status = 'done'
               AND ds.name = ANY(%s)
               AND NOT EXISTS (
                   SELECT 1 FROM t_item_channel_routing r
@@ -54,6 +55,7 @@ def route_channel(task_id: str, channel: dict):
             SELECT a.item_id, a.relevance_score, a.tags
             FROM t_item_analysis a
             WHERE a.relevance_score >= %s
+              AND a.status = 'done'
               AND NOT EXISTS (
                   SELECT 1 FROM t_item_channel_routing r
                   WHERE r.item_id = a.item_id AND r.channel_id = %s

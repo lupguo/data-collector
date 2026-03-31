@@ -1,153 +1,50 @@
 """
-filter/llm_scorer.py — 批量 LLM 评分
-每批最多 20 条，调用 `openclaw agent` CLI
-输出 relevance_score / tags / summary
-
-v2 新增：
-  - _call_llm 结束后估算/解析 token 用量
-  - record_llm_usage() 写入 t_llm_usage 表
-  - score_batch 接受 task_id / sub_task_id 参数（向后兼容默认 None）
+filter/llm_scorer.py — LLM 单条/批量评分
+v3 重构：
+  - 使用 filter/llm_http.py 直接 HTTP 调用，替代 subprocess openclaw agent
+  - 新增 score_single(item) 供并发 Worker 调用
+  - score_batch() 保留（向后兼容，内部调 score_single）
+  - token 用量上报保留
 """
 import json
 import logging
-import subprocess
-import re
 import os
+import re
 
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
+from filter.llm_http import call_llm_http, get_token_usage
+
 logger = logging.getLogger(__name__)
 
-# 从环境变量读取，fallback 到硬编码默认值
-_DEFAULT_PROMPT = """分析以下{count}条新闻/技术条目，每条给出relevance_score(0-1)/tags(3个中文标签数组)/summary(30字内中文摘要)。
-严格只输出JSON数组，无其他文字：
-{items_json}"""
+# ─────────────────────────────────────────────
+# 配置读取
+# ─────────────────────────────────────────────
 
-
-def _get_batch_size() -> int:
-    return int(os.getenv('LLM_BATCH_SIZE', 20))
+_DEFAULT_PROMPT = """分析以下新闻/技术条目，给出relevance_score(0-1)/tags(3个中文标签数组)/summary(30字内中文摘要)。
+严格只输出JSON对象，无其他文字：
+{item_json}"""
 
 
 def _get_max_content_length() -> int:
     return int(os.getenv('LLM_MAX_CONTENT', 150))
 
 
-def _get_timeout() -> int:
-    return int(os.getenv('LLM_TIMEOUT', 120))
+def _get_single_timeout() -> int:
+    return int(os.getenv('LLM_SINGLE_TIMEOUT', 30))
 
 
 def _get_prompt_template() -> str:
-    return os.getenv('LLM_PROMPT_TEMPLATE', _DEFAULT_PROMPT)
+    return os.getenv('LLM_SINGLE_PROMPT_TEMPLATE', _DEFAULT_PROMPT)
 
 
-# 保留全局常量兼容老代码
-BATCH_SIZE = 20
-SCORE_PROMPT_TEMPLATE = _DEFAULT_PROMPT
-
-
-# ─────────────────────────────────────────────
-# LLM 调用
-# ─────────────────────────────────────────────
-
-def _find_openclaw() -> str:
-    """
-    查找 openclaw 可执行文件的绝对路径。
-    优先用 shutil.which（走完整搜索路径），找不到时 fallback 到已知安装位置。
-    """
-    import shutil
-    # 先在当前 PATH 下找
-    path = shutil.which('openclaw')
-    if path:
-        return path
-    # fallback：已知 nvm 安装位置
-    fallback = '/usr/local/lib/.nvm/versions/node/v22.17.0/bin/openclaw'
-    if os.path.isfile(fallback):
-        return fallback
-    return 'openclaw'  # 最后兜底，让 subprocess 报错时有明确信息
-
-
-def _call_llm(prompt: str) -> str:
-    """调用 openclaw agent CLI，返回原始输出字符串"""
-    import shutil
-    timeout = _get_timeout()
-
-    openclaw_bin = _find_openclaw()
-
-    # 构造包含常见路径的 PATH 环境变量，确保子进程能找到 openclaw 及其依赖
-    env = os.environ.copy()
-    extra_paths = [
-        os.path.dirname(openclaw_bin),
-        '/usr/local/lib/.nvm/versions/node/v22.17.0/bin',
-        '/usr/local/bin',
-        '/usr/bin',
-        '/bin',
-    ]
-    existing_path = env.get('PATH', '')
-    combined = ':'.join(p for p in extra_paths if p not in existing_path.split(':'))
-    if combined:
-        env['PATH'] = combined + ':' + existing_path
-
-    try:
-        result = subprocess.run(
-            [openclaw_bin, 'agent', '--agent', 'main', '--message', prompt],
-            capture_output=True, text=True, timeout=timeout, env=env
-        )
-        if result.returncode != 0:
-            logger.error(f'openclaw agent 失败: {result.stderr[:200]}')
-            return ''
-        return result.stdout.strip()
-    except subprocess.TimeoutExpired:
-        logger.error('openclaw agent 超时')
-        return ''
-    except Exception as e:
-        logger.error(f'openclaw agent 异常: {e}')
-        return ''
-
-
-def _estimate_tokens(prompt: str, output: str) -> tuple[int, int]:
-    """
-    估算 token 用量（无法从输出解析时的 fallback）。
-    - 中文字符：约 1.5 字符/token（CJK 范围）
-    - 英文/数字/符号：约 4 字符/token
-    返回 (prompt_tokens, completion_tokens)
-    """
-    import re
-
-    def _count(text: str) -> int:
-        cjk = len(re.findall(r'[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]', text))
-        other = len(text) - cjk
-        return max(1, int(cjk / 1.5 + other / 4))
-
-    return _count(prompt), _count(output)
-
-
-def _parse_token_usage(output: str) -> tuple[int, int] | None:
-    """
-    尝试从 LLM 输出中解析 token 用量信息。
-    openclaw agent 有时会在输出末尾附带形如：
-      [usage: prompt=123 completion=456 total=579]
-    或 JSON 中含 usage 字段。返回 (prompt_tokens, completion_tokens)，解析失败返回 None。
-    """
-    # 模式1：[usage: prompt=N completion=N total=N]
-    m = re.search(
-        r'\[usage:\s*prompt=(\d+)\s+completion=(\d+)',
-        output, re.IGNORECASE
-    )
-    if m:
-        return int(m.group(1)), int(m.group(2))
-
-    # 模式2：JSON 对象含 usage.prompt_tokens / usage.completion_tokens
-    m2 = re.search(r'"prompt_tokens"\s*:\s*(\d+)', output)
-    m3 = re.search(r'"completion_tokens"\s*:\s*(\d+)', output)
-    if m2 and m3:
-        return int(m2.group(1)), int(m3.group(1))
-
-    return None
+def _get_model() -> str:
+    return os.getenv('LLM_MODEL', 'auto')
 
 
 # ─────────────────────────────────────────────
-# LLM 用量上报
+# LLM 用量上报（保留原逻辑）
 # ─────────────────────────────────────────────
 
 def record_llm_usage(
@@ -156,19 +53,13 @@ def record_llm_usage(
     phase: str,
     prompt_tokens: int,
     completion_tokens: int,
-    model: str = 'openclaw/auto',
+    model: str = 'gongfeng/auto',
 ):
-    """
-    将 LLM token 用量记录写入 t_llm_usage。
-    task_id / sub_task_id 允许为 None（向后兼容）。
-    cost_usd 按 0.002 USD/1K token 粗估（可后期配置）。
-    """
+    """将 LLM token 用量写入 t_llm_usage（保持原接口不变）"""
     total_tokens = prompt_tokens + completion_tokens
-    # 粗估费用（可选，传 0 也无妨）
-    cost_usd = round(total_tokens * 0.000002, 6)  # $0.002 / 1K tokens
+    cost_usd = round(total_tokens * 0.000002, 6)
 
     try:
-        # 延迟导入，避免循环依赖
         from db.db import execute as _execute
         _execute(
             """
@@ -189,9 +80,8 @@ def record_llm_usage(
             )
         )
         logger.debug(
-            f'record_llm_usage: phase={phase} model={model} '
-            f'prompt={prompt_tokens} completion={completion_tokens} '
-            f'total={total_tokens} cost={cost_usd:.6f} USD'
+            f'record_llm_usage: phase={phase} prompt={prompt_tokens} '
+            f'completion={completion_tokens} total={total_tokens}'
         )
     except Exception as e:
         logger.error(f'record_llm_usage 写入 DB 失败: {e}')
@@ -201,13 +91,32 @@ def record_llm_usage(
 # JSON 解析工具
 # ─────────────────────────────────────────────
 
-def _extract_json_array(text: str):
-    """从 LLM 输出中提取 JSON 数组，兼容 markdown 代码块"""
-    # 去掉 markdown 代码块
-    text = re.sub(r'```(?:json)?\s*', '', text).strip()
-    text = text.rstrip('`').strip()
+def _extract_json_object(text: str) -> dict | None:
+    """从 LLM 输出中提取 JSON 对象，兼容 markdown 代码块"""
+    text = re.sub(r'```(?:json)?\s*', '', text).strip().rstrip('`').strip()
 
-    # 找到第一个 [ ... ] 范围
+    # 找 { ... }
+    start = text.find('{')
+    if start == -1:
+        return None
+    depth = 0
+    for i, ch in enumerate(text[start:], start):
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start:i+1])
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
+def _extract_json_array(text: str) -> list | None:
+    """从 LLM 输出中提取 JSON 数组（向后兼容 score_batch）"""
+    text = re.sub(r'```(?:json)?\s*', '', text).strip().rstrip('`').strip()
+
     start = text.find('[')
     if start == -1:
         return None
@@ -226,112 +135,114 @@ def _extract_json_array(text: str):
 
 
 # ─────────────────────────────────────────────
-# 批量评分入口
+# 单条评分（并发 Worker 用）
 # ─────────────────────────────────────────────
 
-def score_batch(items: list, task_id=None, sub_task_id=None) -> list:
+def score_single(
+    item: dict,
+    task_id=None,
+    sub_task_id=None,
+) -> dict:
     """
-    批量 LLM 评分，每批最多 BATCH_SIZE 条。
+    对单条条目进行 LLM 评分。
 
     参数：
-      items        — [{id, title, content, source_name}, ...]
-      task_id      — 关联的 task UUID（可选，默认 None，向后兼容）
-      sub_task_id  — 关联的 sub_task UUID（可选，默认 None，向后兼容）
+      item — {id, title, content, source_name}
 
-    返回：[{id, relevance_score, tags, summary}, ...]
-    解析失败时该条 score=0.5, tags=[], summary=''
+    返回：
+      {
+        id:              int,
+        relevance_score: float,
+        tags:            list[str],
+        summary:         str,
+        ok:              bool,    # True=成功, False=失败
+        error:           str,     # 失败时的错误描述
+      }
     """
-    if not items:
-        return []
-
-    batch_size    = _get_batch_size()
     max_content   = _get_max_content_length()
-    prompt_template = _get_prompt_template()
-    model_name    = os.getenv('LLM_MODEL', 'openclaw/auto')
+    timeout       = _get_single_timeout()
+    prompt_tpl    = _get_prompt_template()
+    model_name    = _get_model()
+    item_id       = item['id']
 
-    results = []
+    input_item = {
+        'id':          item_id,
+        'title':       (item.get('title') or '')[:max_content],
+        'content':     (item.get('content') or '')[:max_content],
+        'source_name': item.get('source_name', ''),
+    }
+    prompt = prompt_tpl.format(item_json=json.dumps(input_item, ensure_ascii=False))
 
-    for batch_start in range(0, len(items), batch_size):
-        batch = items[batch_start: batch_start + batch_size]
+    raw_output = call_llm_http(prompt, timeout=timeout, model=model_name)
 
-        # 构建精简输入
-        input_items = []
-        for it in batch:
-            input_items.append({
-                'id':          it['id'],
-                'title':       it.get('title', '')[:max_content],
-                'content':     (it.get('content') or '')[:max_content],
-                'source_name': it.get('source_name', ''),
-            })
-
-        prompt = prompt_template.format(
-            count=len(batch),
-            items_json=json.dumps(input_items, ensure_ascii=False)
-        )
-
-        logger.info(f'LLM 评分批次: {batch_start//batch_size + 1}，条数: {len(batch)}')
-        raw_output = _call_llm(prompt)
-
-        # ── token 用量上报 ──
-        parsed_usage = _parse_token_usage(raw_output) if raw_output else None
-        if parsed_usage:
-            prompt_tokens, completion_tokens = parsed_usage
-            logger.debug(f'从输出解析到 token 用量: prompt={prompt_tokens} completion={completion_tokens}')
-        else:
-            prompt_tokens, completion_tokens = _estimate_tokens(prompt, raw_output or '')
-            logger.debug(f'估算 token 用量: prompt={prompt_tokens} completion={completion_tokens}')
-
+    # token 上报
+    try:
+        pt, ct = get_token_usage(prompt, raw_output or '')
         record_llm_usage(
             task_id=task_id,
             sub_task_id=sub_task_id,
             phase='analyze',
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
+            prompt_tokens=pt,
+            completion_tokens=ct,
             model=model_name,
         )
+    except Exception as e:
+        logger.warning(f'token 用量上报失败 item_id={item_id}: {e}')
 
-        # 解析 JSON
-        parsed = None
-        if raw_output:
-            parsed = _extract_json_array(raw_output)
-            if parsed is None:
-                logger.warning(f'LLM 输出 JSON 解析失败，原始输出前200字: {raw_output[:200]}')
+    if not raw_output:
+        return {
+            'id': item_id, 'relevance_score': 0.5,
+            'tags': [], 'summary': '',
+            'ok': False, 'error': 'LLM 返回空响应',
+        }
 
-        # 建立 id -> 解析结果的映射
-        parsed_map = {}
-        if parsed:
-            for p in parsed:
-                try:
-                    pid = int(p.get('id', -1))
-                    parsed_map[pid] = p
-                except (ValueError, TypeError):
-                    pass
+    parsed = _extract_json_object(raw_output)
+    if parsed is None:
+        return {
+            'id': item_id, 'relevance_score': 0.5,
+            'tags': [], 'summary': '',
+            'ok': False, 'error': f'JSON 解析失败，原始输出: {raw_output[:100]}',
+        }
 
-        # 合并结果，解析失败时降级
-        for it in batch:
-            item_id = it['id']
-            p = parsed_map.get(item_id)
-            if p:
-                try:
-                    score = float(p.get('relevance_score', 0.5))
-                    score = max(0.0, min(1.0, score))
-                except (ValueError, TypeError):
-                    score = 0.5
-                tags    = p.get('tags', [])
-                summary = p.get('summary', '')
-                if not isinstance(tags, list):
-                    tags = []
-            else:
-                logger.warning(f'条目 id={item_id} 未在 LLM 返回中找到，使用降级值')
-                score   = 0.5
-                tags    = []
-                summary = ''
+    try:
+        score = float(parsed.get('relevance_score', 0.5))
+        score = max(0.0, min(1.0, score))
+    except (ValueError, TypeError):
+        score = 0.5
 
-            results.append({
-                'id':              item_id,
-                'relevance_score': score,
-                'tags':            tags,
-                'summary':         summary,
-            })
+    tags = parsed.get('tags', [])
+    if not isinstance(tags, list):
+        tags = []
+    summary = parsed.get('summary', '')
 
+    return {
+        'id': item_id,
+        'relevance_score': score,
+        'tags':    tags,
+        'summary': summary,
+        'ok':    True,
+        'error': '',
+    }
+
+
+# ─────────────────────────────────────────────
+# 批量评分（向后兼容接口，内部调 score_single）
+# ─────────────────────────────────────────────
+
+def score_batch(items: list, task_id=None, sub_task_id=None) -> list:
+    """
+    批量评分（保留原接口，串行调 score_single）。
+    新代码请直接用 score_single + ThreadPoolExecutor。
+
+    返回：[{id, relevance_score, tags, summary}, ...]
+    """
+    results = []
+    for item in items:
+        r = score_single(item, task_id=task_id, sub_task_id=sub_task_id)
+        results.append({
+            'id':              r['id'],
+            'relevance_score': r['relevance_score'],
+            'tags':            r['tags'],
+            'summary':         r['summary'],
+        })
     return results
